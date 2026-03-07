@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epoch — Unix Timestamp Converter</title>
+    <meta name="description" content="Convert Unix timestamps to human-readable dates and vice versa. Live clock, timezone support, time difference calculator.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱️</text></svg>">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-input: #1a1a24;
+            --border: #2a2a3a;
+            --text: #e4e4ed;
+            --text-muted: #8888a0;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* Live Clock Section */
+        .live-clock {
+            background: linear-gradient(135deg, var(--bg-card) 0%, #1a1a28 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .live-clock::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent));
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .clock-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .timestamp-display {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .timestamp-display:hover {
+            text-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .human-time {
+            font-size: 1.25rem;
+            color: var(--text);
+            margin-top: 0.5rem;
+        }
+
+        .copy-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Converter Cards */
+        .converters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-title span {
+            font-size: 1.25rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .result-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            min-height: 80px;
+        }
+
+        .result-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .result-value {
+            font-size: 1.125rem;
+            word-break: break-all;
+        }
+
+        .result-value.mono {
+            font-family: inherit;
+        }
+
+        .copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 0.875rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 0.75rem;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .copy-btn.copied {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        /* Time Diff Calculator */
+        .diff-card {
+            grid-column: 1 / -1;
+        }
+
+        .diff-inputs {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: end;
+            margin-bottom: 1rem;
+        }
+
+        .diff-arrow {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            padding-bottom: 0.875rem;
+        }
+
+        .diff-result {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+
+        .diff-unit {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .diff-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .diff-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Timezone Grid */
+        .tz-card {
+            grid-column: 1 / -1;
+        }
+
+        .tz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .tz-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .tz-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .tz-time {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .quick-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mobile */
+        @media (max-width: 640px) {
+            .converters {
+                grid-template-columns: 1fr;
+            }
+
+            .diff-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .diff-arrow {
+                transform: rotate(90deg);
+                padding: 0;
+                justify-self: center;
+            }
+
+            .timestamp-display {
+                font-size: 2rem;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⏱️ Epoch</h1>
+            <p class="subtitle">Unix Timestamp Converter</p>
+        </header>
+
+        <!-- Live Clock -->
+        <div class="live-clock">
+            <div class="clock-label">Current Unix Timestamp</div>
+            <div class="timestamp-display" id="liveTimestamp" title="Click to copy">—</div>
+            <div class="human-time" id="liveHuman">—</div>
+            <div class="copy-hint">Click timestamp to copy</div>
+        </div>
+
+        <div class="converters">
+            <!-- Timestamp to Date -->
+            <div class="card">
+                <h2 class="card-title"><span>🔢</span> Timestamp → Date</h2>
+                <div class="input-group">
+                    <label>Unix Timestamp</label>
+                    <input type="text" id="tsInput" placeholder="e.g., 1709856000">
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-btn" data-ts="now">Now</button>
+                    <button class="quick-btn" data-ts="today">Today 00:00</button>
+                    <button class="quick-btn" data-ts="tomorrow">Tomorrow</button>
+                </div>
+                <div class="result-box">
+                    <div class="result-label">Human Readable</div>
+                    <div class="result-value" id="tsResult">Enter a timestamp above</div>
+                    <button class="copy-btn" data-copy="tsResult">📋 Copy</button>
+                </div>
+            </div>
+
+            <!-- Date to Timestamp -->
+            <div class="card">
+                <h2 class="card-title"><span>📅</span> Date → Timestamp</h2>
+                <div class="input-group">
+                    <label>Date & Time</label>
+                    <input type="datetime-local" id="dateInput">
+                </div>
+                <div class="input-group">
+                    <label>Timezone</label>
+                    <select id="tzSelect">
+                        <option value="local">Local Time</option>
+                        <option value="UTC">UTC</option>
+                        <option value="America/New_York">New York (EST/EDT)</option>
+                        <option value="America/Los_Angeles">Los Angeles (PST/PDT)</option>
+                        <option value="Europe/London">London (GMT/BST)</option>
+                        <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                        <option value="Europe/Budapest">Budapest (CET/CEST)</option>
+                        <option value="Asia/Tokyo">Tokyo (JST)</option>
+                        <option value="Asia/Shanghai">Shanghai (CST)</option>
+                        <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+                    </select>
+                </div>
+                <div class="result-box">
+                    <div class="result-label">Unix Timestamp</div>
+                    <div class="result-value mono" id="dateResult">Select a date above</div>
+                    <button class="copy-btn" data-copy="dateResult">📋 Copy</button>
+                </div>
+            </div>
+
+            <!-- Time Difference -->
+            <div class="card diff-card">
+                <h2 class="card-title"><span>⏳</span> Time Difference Calculator</h2>
+                <div class="diff-inputs">
+                    <div class="input-group">
+                        <label>From (Timestamp)</label>
+                        <input type="text" id="diffFrom" placeholder="Start timestamp">
+                    </div>
+                    <div class="diff-arrow">→</div>
+                    <div class="input-group">
+                        <label>To (Timestamp)</label>
+                        <input type="text" id="diffTo" placeholder="End timestamp">
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-btn" id="diffNow">Set "To" to Now</button>
+                </div>
+                <div class="diff-result">
+                    <div class="diff-unit">
+                        <div class="diff-value" id="diffSeconds">—</div>
+                        <div class="diff-label">Seconds</div>
+                    </div>
+                    <div class="diff-unit">
+                        <div class="diff-value" id="diffMinutes">—</div>
+                        <div class="diff-label">Minutes</div>
+                    </div>
+                    <div class="diff-unit">
+                        <div class="diff-value" id="diffHours">—</div>
+                        <div class="diff-label">Hours</div>
+                    </div>
+                    <div class="diff-unit">
+                        <div class="diff-value" id="diffDays">—</div>
+                        <div class="diff-label">Days</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timezone Overview -->
+            <div class="card tz-card">
+                <h2 class="card-title"><span>🌍</span> World Clocks</h2>
+                <div class="tz-grid" id="tzGrid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            Built with ☕ · <a href="https://entazis.dev">entazis.dev</a>
+        </footer>
+    </div>
+
+    <script>
+        // Tracking
+        fetch('/api/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                metrics: [{
+                    name: 'web_page_visits',
+                    type: 'counter',
+                    value: 1,
+                    labels: { site: 'epoch', page: location.pathname }
+                }]
+            })
+        }).catch(() => {});
+
+        // Elements
+        const liveTimestamp = document.getElementById('liveTimestamp');
+        const liveHuman = document.getElementById('liveHuman');
+        const tsInput = document.getElementById('tsInput');
+        const tsResult = document.getElementById('tsResult');
+        const dateInput = document.getElementById('dateInput');
+        const dateResult = document.getElementById('dateResult');
+        const tzSelect = document.getElementById('tzSelect');
+        const diffFrom = document.getElementById('diffFrom');
+        const diffTo = document.getElementById('diffTo');
+        const tzGrid = document.getElementById('tzGrid');
+
+        const timezones = [
+            { id: 'UTC', name: 'UTC' },
+            { id: 'Europe/Budapest', name: 'Budapest' },
+            { id: 'Europe/London', name: 'London' },
+            { id: 'America/New_York', name: 'New York' },
+            { id: 'America/Los_Angeles', name: 'Los Angeles' },
+            { id: 'Asia/Tokyo', name: 'Tokyo' }
+        ];
+
+        // Format helpers
+        function formatDate(date, tz = 'local') {
+            const opts = {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            if (tz !== 'local') opts.timeZone = tz;
+            return date.toLocaleString('en-US', opts);
+        }
+
+        function formatShortTime(date, tz) {
+            return date.toLocaleString('en-US', {
+                timeZone: tz,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        // Live clock
+        function updateLiveClock() {
+            const now = Math.floor(Date.now() / 1000);
+            liveTimestamp.textContent = now;
+            liveHuman.textContent = formatDate(new Date());
+            updateWorldClocks();
+        }
+
+        setInterval(updateLiveClock, 1000);
+        updateLiveClock();
+
+        // World clocks
+        function updateWorldClocks() {
+            const now = new Date();
+            tzGrid.innerHTML = timezones.map(tz => `
+                <div class="tz-item">
+                    <div class="tz-name">${tz.name}</div>
+                    <div class="tz-time">${formatShortTime(now, tz.id)}</div>
+                </div>
+            `).join('');
+        }
+
+        // Click to copy timestamp
+        liveTimestamp.addEventListener('click', () => {
+            navigator.clipboard.writeText(liveTimestamp.textContent);
+            showCopied(liveTimestamp);
+        });
+
+        function showCopied(el) {
+            const original = el.textContent;
+            el.style.color = 'var(--success)';
+            setTimeout(() => el.style.color = '', 500);
+        }
+
+        // Timestamp to Date converter
+        function parseTimestamp(input) {
+            const num = parseInt(input, 10);
+            if (isNaN(num)) return null;
+            // Auto-detect milliseconds vs seconds
+            if (num > 9999999999) return num; // Already ms
+            return num * 1000; // Convert to ms
+        }
+
+        tsInput.addEventListener('input', () => {
+            const val = tsInput.value.trim();
+            if (!val) {
+                tsResult.textContent = 'Enter a timestamp above';
+                return;
+            }
+            const ms = parseTimestamp(val);
+            if (!ms) {
+                tsResult.textContent = 'Invalid timestamp';
+                return;
+            }
+            const date = new Date(ms);
+            tsResult.textContent = formatDate(date);
+        });
+
+        // Quick buttons
+        document.querySelectorAll('[data-ts]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.ts;
+                let ts;
+                if (action === 'now') {
+                    ts = Math.floor(Date.now() / 1000);
+                } else if (action === 'today') {
+                    const d = new Date();
+                    d.setHours(0, 0, 0, 0);
+                    ts = Math.floor(d.getTime() / 1000);
+                } else if (action === 'tomorrow') {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 1);
+                    d.setHours(0, 0, 0, 0);
+                    ts = Math.floor(d.getTime() / 1000);
+                }
+                tsInput.value = ts;
+                tsInput.dispatchEvent(new Event('input'));
+            });
+        });
+
+        // Date to Timestamp converter
+        function updateDateToTs() {
+            const val = dateInput.value;
+            if (!val) {
+                dateResult.textContent = 'Select a date above';
+                return;
+            }
+            
+            const tz = tzSelect.value;
+            let date;
+            
+            if (tz === 'local' || tz === 'UTC') {
+                date = new Date(val + (tz === 'UTC' ? 'Z' : ''));
+            } else {
+                // For other timezones, we need to calculate offset
+                const localDate = new Date(val);
+                const utcDate = new Date(localDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+                const tzDate = new Date(localDate.toLocaleString('en-US', { timeZone: tz }));
+                const offset = utcDate - tzDate;
+                date = new Date(localDate.getTime() + offset);
+            }
+            
+            const ts = Math.floor(date.getTime() / 1000);
+            dateResult.textContent = ts;
+        }
+
+        dateInput.addEventListener('input', updateDateToTs);
+        tzSelect.addEventListener('change', updateDateToTs);
+
+        // Set default to now
+        const now = new Date();
+        dateInput.value = now.toISOString().slice(0, 16);
+        updateDateToTs();
+
+        // Time difference calculator
+        function updateDiff() {
+            const from = parseTimestamp(diffFrom.value);
+            const to = parseTimestamp(diffTo.value);
+            
+            if (!from || !to) {
+                ['diffSeconds', 'diffMinutes', 'diffHours', 'diffDays'].forEach(id => {
+                    document.getElementById(id).textContent = '—';
+                });
+                return;
+            }
+            
+            const diffMs = Math.abs(to - from);
+            const seconds = Math.floor(diffMs / 1000);
+            const minutes = (diffMs / (1000 * 60)).toFixed(2);
+            const hours = (diffMs / (1000 * 60 * 60)).toFixed(2);
+            const days = (diffMs / (1000 * 60 * 60 * 24)).toFixed(2);
+            
+            document.getElementById('diffSeconds').textContent = seconds.toLocaleString();
+            document.getElementById('diffMinutes').textContent = minutes;
+            document.getElementById('diffHours').textContent = hours;
+            document.getElementById('diffDays').textContent = days;
+        }
+
+        diffFrom.addEventListener('input', updateDiff);
+        diffTo.addEventListener('input', updateDiff);
+
+        document.getElementById('diffNow').addEventListener('click', () => {
+            diffTo.value = Math.floor(Date.now() / 1000);
+            updateDiff();
+        });
+
+        // Copy buttons
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.dataset.copy;
+                const text = document.getElementById(targetId).textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.classList.add('copied');
+                    btn.innerHTML = '✓ Copied';
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = '📋 Copy';
+                    }, 1500);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
